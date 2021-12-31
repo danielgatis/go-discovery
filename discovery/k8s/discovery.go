@@ -13,8 +13,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// Resolver is a k8s resolver.
-type Resolver struct {
+// Discovery is a k8s resolver.
+type Discovery struct {
 	clientset kubernetes.Interface
 	namespace string
 	portName  string
@@ -26,7 +26,7 @@ type Resolver struct {
 }
 
 // New returns a new k8s resolver.
-func New(clientset kubernetes.Interface, portName string, opts ...Option) *Resolver {
+func New(clientset kubernetes.Interface, portName string, opts ...Option) *Discovery {
 	const (
 		defaultNamespace = "default"
 		defaultInterval  = 5 * time.Second
@@ -37,7 +37,7 @@ func New(clientset kubernetes.Interface, portName string, opts ...Option) *Resol
 		defaultLogger = logrus.StandardLogger()
 	)
 
-	r := &Resolver{
+	d := &Discovery{
 		clientset: clientset,
 		namespace: defaultNamespace,
 		portName:  portName,
@@ -49,40 +49,40 @@ func New(clientset kubernetes.Interface, portName string, opts ...Option) *Resol
 	}
 
 	for _, opt := range opts {
-		opt(r)
+		opt(d)
 	}
 
-	return r
+	return d
 }
 
 // Start implements resolver.Resolver.
-func (r *Resolver) Start() (chan string, error) {
-	ticker := time.NewTicker(r.interval)
+func (d *Discovery) Start() (chan string, error) {
+	ticker := time.NewTicker(d.interval)
 
 	go func() {
 		for {
 			select {
-			case <-r.stop:
+			case <-d.stop:
 				ticker.Stop()
 				return
 			case <-ticker.C:
-				services, err := r.clientset.CoreV1().Services(r.namespace).List(context.Background(), m1.ListOptions{
-					LabelSelector: labels.SelectorFromSet(r.labels).String(),
+				services, err := d.clientset.CoreV1().Services(d.namespace).List(context.Background(), m1.ListOptions{
+					LabelSelector: labels.SelectorFromSet(d.labels).String(),
 					Watch:         false,
 				})
 
 				if err != nil {
-					r.logger.Errorf("Error during k8s service lookup: %v\n", err)
+					d.logger.Errorf("Error during k8s service lookup: %v\n", err)
 					continue
 				}
 
 				for _, service := range services.Items {
-					pods, err := r.clientset.CoreV1().Pods(service.Namespace).List(context.Background(), m1.ListOptions{
+					pods, err := d.clientset.CoreV1().Pods(service.Namespace).List(context.Background(), m1.ListOptions{
 						LabelSelector: labels.SelectorFromSet(labels.Set(service.Spec.Selector)).String(),
 					})
 
 					if err != nil {
-						r.logger.Errorf("Error during k8s pod lookup: %v\n", err)
+						d.logger.Errorf("Error during k8s pod lookup: %v\n", err)
 						continue
 					}
 
@@ -96,7 +96,7 @@ func (r *Resolver) Start() (chan string, error) {
 
 						for _, container := range pod.Spec.Containers {
 							for _, port := range container.Ports {
-								if port.Name == r.portName {
+								if port.Name == d.portName {
 									podPort = port
 									break
 								}
@@ -104,7 +104,7 @@ func (r *Resolver) Start() (chan string, error) {
 						}
 
 						if podIP != "" && podPort.ContainerPort != 0 {
-							r.output <- fmt.Sprintf("%v:%v", podIP, podPort.ContainerPort)
+							d.output <- fmt.Sprintf("%v:%v", podIP, podPort.ContainerPort)
 						}
 					}
 				}
@@ -112,11 +112,11 @@ func (r *Resolver) Start() (chan string, error) {
 		}
 	}()
 
-	return r.output, nil
+	return d.output, nil
 }
 
 // Stop implements resolver.Resolver.
-func (r *Resolver) Stop() {
-	r.stop <- struct{}{}
-	close(r.output)
+func (d *Discovery) Stop() {
+	d.stop <- struct{}{}
+	close(d.output)
 }

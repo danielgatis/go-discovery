@@ -7,32 +7,32 @@ import (
 )
 
 // Option is a constructor option.
-type Option func(*Resolver)
+type Option func(*Discovery)
 
 // WithNamespace sets the k8s namespace.
 func WithNamespace(namespace string) Option {
-	return func(r *Resolver) {
-		r.namespace = namespace
+	return func(d *Discovery) {
+		d.namespace = namespace
 	}
 }
 
 // WithLabels sets the labels to lookup.
 func WithLabels(labels map[string]string) Option {
-	return func(r *Resolver) {
-		r.labels = labels
+	return func(d *Discovery) {
+		d.labels = labels
 	}
 }
 
 // WithInterval sets the lookup interval.
 func WithInterval(interval time.Duration) Option {
-	return func(r *Resolver) {
-		r.interval = interval
+	return func(d *Discovery) {
+		d.interval = interval
 	}
 }
 
 // WithLogger sets the logger.
 func WithLogger(logger logrus.FieldLogger) Option {
-	return func(r *Resolver) {
-		r.logger = logger
+	return func(d *Discovery) {
+		d.logger = logger
 	}
 }

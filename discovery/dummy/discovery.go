@@ -6,8 +6,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Resolver is a dummy resolver for static peers.
-type Resolver struct {
+// Discovery is a dummy resolver for static peers.
+type Discovery struct {
 	peers    []string
 	logger   logrus.FieldLogger
 	interval time.Duration
@@ -16,7 +16,7 @@ type Resolver struct {
 }
 
 // New returns a new dummy resolver.
-func New(peers []string, opts ...Option) *Resolver {
+func New(peers []string, opts ...Option) *Discovery {
 	const (
 		defaultInterval = 2 * time.Second
 	)
@@ -25,7 +25,7 @@ func New(peers []string, opts ...Option) *Resolver {
 		defaultLogger = logrus.StandardLogger()
 	)
 
-	r := &Resolver{
+	d := &Discovery{
 		peers:    peers,
 		logger:   defaultLogger,
 		interval: defaultInterval,
@@ -34,14 +34,14 @@ func New(peers []string, opts ...Option) *Resolver {
 	}
 
 	for _, opt := range opts {
-		opt(r)
+		opt(d)
 	}
 
-	return r
+	return d
 }
 
 // Start implements resolver.Resolver.
-func (d *Resolver) Start() (chan string, error) {
+func (d *Discovery) Start() (chan string, error) {
 	ticker := time.NewTicker(d.interval)
 
 	go func() {
@@ -62,7 +62,7 @@ func (d *Resolver) Start() (chan string, error) {
 }
 
 // Stop implements resolver.Resolver.
-func (d *Resolver) Stop() {
+func (d *Discovery) Stop() {
 	d.stop <- struct{}{}
 	close(d.output)
 }
