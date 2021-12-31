@@ -1,7 +1,7 @@
-package resolver
+package discovery
 
-// Resolver represents a base interface for all providers.
-type Resolver interface {
+// Discovery represents a base interface for all providers.
+type Discovery interface {
 	// Start returns a channel that outputs the found peers. A peer is a ip:port.
 	Start() (chan string, error)
 
