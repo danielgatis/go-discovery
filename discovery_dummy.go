@@ -1,4 +1,4 @@
-package dummy
+package discovery
 
 import (
 	"time"
@@ -6,42 +6,28 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Discovery is a dummy resolver for static peers.
-type Discovery struct {
+// DummyDiscovery is a dummy resolver for static peers.
+type DummyDiscovery struct {
 	peers    []string
-	logger   logrus.FieldLogger
 	interval time.Duration
+	logger   logrus.FieldLogger
 	output   chan string
 	stop     chan struct{}
 }
 
-// New returns a new dummy resolver.
-func New(peers []string, opts ...Option) *Discovery {
-	const (
-		defaultInterval = 2 * time.Second
-	)
-
-	var (
-		defaultLogger = logrus.StandardLogger()
-	)
-
-	d := &Discovery{
+// NewDummyDiscovery returns a new dummy resolver.
+func NewDummyDiscovery(peers []string, interval time.Duration, logger logrus.FieldLogger) *DummyDiscovery {
+	return &DummyDiscovery{
 		peers:    peers,
-		logger:   defaultLogger,
-		interval: defaultInterval,
+		interval: interval,
+		logger:   logger,
 		output:   make(chan string),
 		stop:     make(chan struct{}),
 	}
-
-	for _, opt := range opts {
-		opt(d)
-	}
-
-	return d
 }
 
 // Start implements resolver.Resolver.
-func (d *Discovery) Start() (chan string, error) {
+func (d *DummyDiscovery) Start() (chan string, error) {
 	ticker := time.NewTicker(d.interval)
 
 	go func() {
@@ -62,7 +48,7 @@ func (d *Discovery) Start() (chan string, error) {
 }
 
 // Stop implements resolver.Resolver.
-func (d *Discovery) Stop() {
+func (d *DummyDiscovery) Stop() {
 	d.stop <- struct{}{}
 	close(d.output)
 }

@@ -1,4 +1,4 @@
-package k8s
+package discovery
 
 import (
 	"context"
@@ -13,8 +13,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// Discovery is a k8s resolver.
-type Discovery struct {
+// K8sDiscovery is a k8s resolver.
+type K8sDiscovery struct {
 	clientset kubernetes.Interface
 	namespace string
 	portName  string
@@ -25,38 +25,22 @@ type Discovery struct {
 	stop      chan struct{}
 }
 
-// New returns a new k8s resolver.
-func New(clientset kubernetes.Interface, portName string, opts ...Option) *Discovery {
-	const (
-		defaultNamespace = "default"
-		defaultInterval  = 5 * time.Second
-	)
-
-	var (
-		defaultLabels = make(map[string]string)
-		defaultLogger = logrus.StandardLogger()
-	)
-
-	d := &Discovery{
+// NewK8sDiscovery returns a new k8s resolver.
+func NewK8sDiscovery(clientset kubernetes.Interface, namespace string, portName string, labels map[string]string, interval time.Duration, logger logrus.FieldLogger) *K8sDiscovery {
+	return &K8sDiscovery{
 		clientset: clientset,
-		namespace: defaultNamespace,
+		namespace: namespace,
 		portName:  portName,
-		labels:    defaultLabels,
-		logger:    defaultLogger,
-		interval:  defaultInterval,
+		labels:    labels,
+		interval:  interval,
+		logger:    logger,
 		output:    make(chan string),
 		stop:      make(chan struct{}),
 	}
-
-	for _, opt := range opts {
-		opt(d)
-	}
-
-	return d
 }
 
 // Start implements resolver.Resolver.
-func (d *Discovery) Start() (chan string, error) {
+func (d *K8sDiscovery) Start() (chan string, error) {
 	ticker := time.NewTicker(d.interval)
 
 	go func() {
@@ -116,7 +100,7 @@ func (d *Discovery) Start() (chan string, error) {
 }
 
 // Stop implements resolver.Resolver.
-func (d *Discovery) Stop() {
+func (d *K8sDiscovery) Stop() {
 	d.stop <- struct{}{}
 	close(d.output)
 }

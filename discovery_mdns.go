@@ -1,4 +1,4 @@
-package mdns
+package discovery
 
 import (
 	"context"
@@ -9,49 +9,34 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Discovery is a mDNS resolver.
-type Discovery struct {
+// MdnsDiscovery is a mDNS resolver.
+type MdnsDiscovery struct {
 	instance string
 	service  string
 	domain   string
 	port     int
-	logger   logrus.FieldLogger
 	interval time.Duration
+	logger   logrus.FieldLogger
 	output   chan string
 	stop     chan struct{}
 }
 
-// New returns a new mDNS resolver.
-func New(instance, service string, port int, opts ...Option) *Discovery {
-	const (
-		defaultDomain   = "local."
-		defaultInterval = 5 * time.Second
-	)
-
-	var (
-		defaultLogger = logrus.StandardLogger()
-	)
-
-	d := &Discovery{
+// NewMdnsDiscovery returns a new mDNS resolver.
+func NewMdnsDiscovery(instance, service, domain string, port int, interval time.Duration, logger logrus.FieldLogger) *MdnsDiscovery {
+	return &MdnsDiscovery{
 		instance: instance,
 		service:  service,
-		domain:   defaultDomain,
+		domain:   domain,
 		port:     port,
-		logger:   defaultLogger,
-		interval: defaultInterval,
+		interval: interval,
+		logger:   logger,
 		output:   make(chan string),
 		stop:     make(chan struct{}),
 	}
-
-	for _, opt := range opts {
-		opt(d)
-	}
-
-	return d
 }
 
 // Start implements resolver.Resolver.
-func (d *Discovery) Start() (chan string, error) {
+func (d *MdnsDiscovery) Start() (chan string, error) {
 	server, err := zeroconf.Register(d.instance, d.service, d.domain, d.port, []string{"txtv=0", "lo=1", "la=2"}, nil)
 	if err != nil {
 		return nil, fmt.Errorf("zeroconf.Register(...): %w", err)
@@ -93,7 +78,7 @@ func (d *Discovery) Start() (chan string, error) {
 }
 
 // Stop implements resolver.Resolver.
-func (d *Discovery) Stop() {
+func (d *MdnsDiscovery) Stop() {
 	d.stop <- struct{}{}
 	close(d.output)
 }
