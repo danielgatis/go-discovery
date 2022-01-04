@@ -56,8 +56,6 @@ func (d *MdnsDiscovery) Start() (chan []string, error) {
 			for entry := range entries {
 				peers = append(peers, fmt.Sprintf("%s:%d", entry.AddrIPv4[0], entry.Port))
 			}
-
-			d.output <- peers
 		}()
 
 		resolver, err := zeroconf.NewResolver(nil)
@@ -69,7 +67,9 @@ func (d *MdnsDiscovery) Start() (chan []string, error) {
 		if err := resolver.Browse(ctx, d.service, d.domain, entries); err != nil {
 			d.logger.Errorf("Error during mDNS lookup: %v\n", err)
 		}
+
 		<-ctx.Done()
+		d.output <- peers
 
 		return nil
 	}
