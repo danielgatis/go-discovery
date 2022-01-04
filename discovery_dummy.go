@@ -13,6 +13,7 @@ type DummyDiscovery struct {
 	logger   logrus.FieldLogger
 	output   chan []string
 	stop     chan struct{}
+	running  bool
 }
 
 // NewDummyDiscovery returns a new dummy resolver.
@@ -23,11 +24,16 @@ func NewDummyDiscovery(peers []string, interval time.Duration, logger logrus.Fie
 		logger:   logger,
 		output:   make(chan []string),
 		stop:     make(chan struct{}),
+		running:  false,
 	}
 }
 
 // Start implements resolver.Resolver.
 func (d *DummyDiscovery) Start() (chan []string, error) {
+	if d.running {
+		return d.output, nil
+	}
+
 	ticker := time.NewTicker(d.interval)
 
 	f := func() {
@@ -48,11 +54,17 @@ func (d *DummyDiscovery) Start() (chan []string, error) {
 		}
 	}()
 
+	d.running = true
 	return d.output, nil
 }
 
 // Stop implements resolver.Resolver.
 func (d *DummyDiscovery) Stop() {
+	if !d.running {
+		return
+	}
+
 	d.stop <- struct{}{}
 	close(d.output)
+	d.running = false
 }

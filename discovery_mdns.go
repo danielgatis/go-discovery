@@ -19,6 +19,7 @@ type MdnsDiscovery struct {
 	logger   logrus.FieldLogger
 	output   chan []string
 	stop     chan struct{}
+	running  bool
 }
 
 // NewMdnsDiscovery returns a new mDNS resolver.
@@ -32,11 +33,16 @@ func NewMdnsDiscovery(instance, service, domain string, port int, interval time.
 		logger:   logger,
 		output:   make(chan []string),
 		stop:     make(chan struct{}),
+		running:  false,
 	}
 }
 
 // Start implements resolver.Resolver.
 func (d *MdnsDiscovery) Start() (chan []string, error) {
+	if d.running {
+		return d.output, nil
+	}
+
 	server, err := zeroconf.Register(d.instance, d.service, d.domain, d.port, []string{"txtv=0", "lo=1", "la=2"}, nil)
 	if err != nil {
 		return d.output, fmt.Errorf("zeroconf.Register(...): %w", err)
@@ -86,11 +92,17 @@ func (d *MdnsDiscovery) Start() (chan []string, error) {
 		}
 	}()
 
+	d.running = true
 	return d.output, nil
 }
 
 // Stop implements resolver.Resolver.
 func (d *MdnsDiscovery) Stop() {
+	if !d.running {
+		return
+	}
+
 	d.stop <- struct{}{}
 	close(d.output)
+	d.running = false
 }
