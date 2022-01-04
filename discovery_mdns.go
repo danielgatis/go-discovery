@@ -76,7 +76,7 @@ func (d *MdnsDiscovery) Start() (chan []string, error) {
 
 	go func() {
 		if err := f(); err != nil {
-			d.logger.Errorf("Error during msdn service lookup: %v\n", err)
+			d.logger.Errorf("Error during mdns service lookup: %v\n", err)
 		}
 
 		for {
@@ -86,7 +86,7 @@ func (d *MdnsDiscovery) Start() (chan []string, error) {
 				return
 			default:
 				if err := f(); err != nil {
-					d.logger.Errorf("Error during msdn service lookup: %v\n", err)
+					d.logger.Errorf("Error during mdns service lookup: %v\n", err)
 				}
 			}
 		}
