@@ -11,10 +11,8 @@ import (
 )
 
 func main() {
-	d := discovery.NewMdnsDiscovery(5*time.Second, logrus.StandardLogger(), func() (string, string, string, int) {
-		port, _ := strconv.Atoi(os.Getenv("PORT"))
-		return fmt.Sprintf("test:%d", port), "_test._tcp", "local.", port
-	})
+	port, _ := strconv.Atoi(os.Getenv("PORT"))
+	d := discovery.NewMdnsDiscovery(fmt.Sprintf("test:%d", port), "_test._tcp", "local.", port, 5*time.Second, logrus.StandardLogger())
 
 	output, err := d.Start()
 	if err != nil {

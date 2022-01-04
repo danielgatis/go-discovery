@@ -23,9 +23,7 @@ type MdnsDiscovery struct {
 }
 
 // NewMdnsDiscovery returns a new mDNS resolver.
-func NewMdnsDiscovery(interval time.Duration, logger logrus.FieldLogger, configFn func() (instance, service, domain string, port int)) *MdnsDiscovery {
-	instance, service, domain, port := configFn()
-
+func NewMdnsDiscovery(instance, service, domain string, port int, interval time.Duration, logger logrus.FieldLogger) *MdnsDiscovery {
 	return &MdnsDiscovery{
 		instance: instance,
 		service:  service,
