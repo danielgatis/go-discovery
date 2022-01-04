@@ -39,41 +39,49 @@ func NewMdnsDiscovery(instance, service, domain string, port int, interval time.
 func (d *MdnsDiscovery) Start() (chan []string, error) {
 	server, err := zeroconf.Register(d.instance, d.service, d.domain, d.port, []string{"txtv=0", "lo=1", "la=2"}, nil)
 	if err != nil {
-		return nil, fmt.Errorf("zeroconf.Register(...): %w", err)
+		return d.output, fmt.Errorf("zeroconf.Register(...): %w", err)
 	}
 
-	resolver, err := zeroconf.NewResolver(nil)
-	if err != nil {
-		return d.output, fmt.Errorf("zeroconf.NewResolver(...): %w", err)
-	}
+	f := func() error {
+		peers := make([]string, 0)
+		entries := make(chan *zeroconf.ServiceEntry)
 
-	ticker := time.NewTicker(d.interval)
+		go func() {
+			for entry := range entries {
+				peers = append(peers, fmt.Sprintf("%s:%d", entry.AddrIPv4[0], entry.Port))
+			}
+
+			d.output <- peers
+		}()
+
+		resolver, err := zeroconf.NewResolver(nil)
+		if err != nil {
+			return err
+		}
+
+		ctx, _ := context.WithTimeout(context.Background(), d.interval)
+		if err := resolver.Browse(ctx, d.service, d.domain, entries); err != nil {
+			d.logger.Errorf("Error during mDNS lookup: %v\n", err)
+		}
+		<-ctx.Done()
+
+		return nil
+	}
 
 	go func() {
+		if err := f(); err != nil {
+			d.logger.Errorf("Error during msdn service lookup: %v\n", err)
+		}
+
 		for {
 			select {
 			case <-d.stop:
-				ticker.Stop()
 				server.Shutdown()
 				return
-			case <-ticker.C:
-				peers := make([]string, 0)
-
-				ctx := context.Background()
-				entries := make(chan *zeroconf.ServiceEntry)
-
-				go func() {
-					for entry := range entries {
-						peers = append(peers, fmt.Sprintf("%s:%d", entry.AddrIPv4[0], entry.Port))
-					}
-				}()
-
-				if err := resolver.Browse(ctx, d.service, d.domain, entries); err != nil {
-					d.logger.Errorf("Error during mDNS lookup: %v\n", err)
+			default:
+				if err := f(); err != nil {
+					d.logger.Errorf("Error during msdn service lookup: %v\n", err)
 				}
-
-				<-ctx.Done()
-				d.output <- peers
 			}
 		}
 	}()

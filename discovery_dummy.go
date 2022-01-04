@@ -30,14 +30,20 @@ func NewDummyDiscovery(peers []string, interval time.Duration, logger logrus.Fie
 func (d *DummyDiscovery) Start() (chan []string, error) {
 	ticker := time.NewTicker(d.interval)
 
+	f := func() {
+		d.output <- d.peers
+	}
+
 	go func() {
+		f()
+
 		for {
 			select {
 			case <-d.stop:
 				ticker.Stop()
 				return
 			case <-ticker.C:
-				d.output <- d.peers
+				f()
 			}
 		}
 	}()

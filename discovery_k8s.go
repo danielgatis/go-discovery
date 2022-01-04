@@ -43,59 +43,69 @@ func NewK8sDiscovery(clientset kubernetes.Interface, namespace string, portName 
 func (d *K8sDiscovery) Start() (chan []string, error) {
 	ticker := time.NewTicker(d.interval)
 
+	f := func() error {
+		services, err := d.clientset.CoreV1().Services(d.namespace).List(context.Background(), m1.ListOptions{
+			LabelSelector: labels.SelectorFromSet(d.labels).String(),
+			Watch:         false,
+		})
+
+		if err != nil {
+			return err
+		}
+
+		peers := make([]string, 0)
+
+		for _, service := range services.Items {
+			pods, err := d.clientset.CoreV1().Pods(service.Namespace).List(context.Background(), m1.ListOptions{
+				LabelSelector: labels.SelectorFromSet(labels.Set(service.Spec.Selector)).String(),
+			})
+
+			if err != nil {
+				d.logger.Errorf("Error during k8s pod lookup: %v\n", err)
+				continue
+			}
+
+			for _, pod := range pods.Items {
+				if strings.ToLower(string(pod.Status.Phase)) != "running" {
+					continue
+				}
+
+				podIP := pod.Status.PodIP
+				var podPort v1.ContainerPort
+
+				for _, container := range pod.Spec.Containers {
+					for _, port := range container.Ports {
+						if port.Name == d.portName {
+							podPort = port
+							break
+						}
+					}
+				}
+
+				if podIP != "" && podPort.ContainerPort != 0 {
+					peers = append(peers, fmt.Sprintf("%v:%v", podIP, podPort.ContainerPort))
+				}
+			}
+		}
+
+		d.output <- peers
+		return nil
+	}
+
 	go func() {
+		if err := f(); err != nil {
+			d.logger.Errorf("Error during k8s service lookup: %v\n", err)
+		}
+
 		for {
 			select {
 			case <-d.stop:
 				ticker.Stop()
 				return
 			case <-ticker.C:
-				services, err := d.clientset.CoreV1().Services(d.namespace).List(context.Background(), m1.ListOptions{
-					LabelSelector: labels.SelectorFromSet(d.labels).String(),
-					Watch:         false,
-				})
-
-				if err != nil {
+				if err := f(); err != nil {
 					d.logger.Errorf("Error during k8s service lookup: %v\n", err)
-					continue
 				}
-
-				peers := make([]string, 0)
-
-				for _, service := range services.Items {
-					pods, err := d.clientset.CoreV1().Pods(service.Namespace).List(context.Background(), m1.ListOptions{
-						LabelSelector: labels.SelectorFromSet(labels.Set(service.Spec.Selector)).String(),
-					})
-
-					if err != nil {
-						d.logger.Errorf("Error during k8s pod lookup: %v\n", err)
-						continue
-					}
-
-					for _, pod := range pods.Items {
-						if strings.ToLower(string(pod.Status.Phase)) != "running" {
-							continue
-						}
-
-						podIP := pod.Status.PodIP
-						var podPort v1.ContainerPort
-
-						for _, container := range pod.Spec.Containers {
-							for _, port := range container.Ports {
-								if port.Name == d.portName {
-									podPort = port
-									break
-								}
-							}
-						}
-
-						if podIP != "" && podPort.ContainerPort != 0 {
-							peers = append(peers, fmt.Sprintf("%v:%v", podIP, podPort.ContainerPort))
-						}
-					}
-				}
-
-				d.output <- peers
 			}
 		}
 	}()
