@@ -11,7 +11,7 @@ type DummyDiscovery struct {
 	peers    []string
 	interval time.Duration
 	logger   logrus.FieldLogger
-	output   chan string
+	output   chan []string
 	stop     chan struct{}
 }
 
@@ -21,13 +21,13 @@ func NewDummyDiscovery(peers []string, interval time.Duration, logger logrus.Fie
 		peers:    peers,
 		interval: interval,
 		logger:   logger,
-		output:   make(chan string),
+		output:   make(chan []string),
 		stop:     make(chan struct{}),
 	}
 }
 
 // Start implements resolver.Resolver.
-func (d *DummyDiscovery) Start() (chan string, error) {
+func (d *DummyDiscovery) Start() (chan []string, error) {
 	ticker := time.NewTicker(d.interval)
 
 	go func() {
@@ -37,9 +37,7 @@ func (d *DummyDiscovery) Start() (chan string, error) {
 				ticker.Stop()
 				return
 			case <-ticker.C:
-				for _, peer := range d.peers {
-					d.output <- peer
-				}
+				d.output <- d.peers
 			}
 		}
 	}()

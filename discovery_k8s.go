@@ -21,7 +21,7 @@ type K8sDiscovery struct {
 	labels    map[string]string
 	logger    logrus.FieldLogger
 	interval  time.Duration
-	output    chan string
+	output    chan []string
 	stop      chan struct{}
 }
 
@@ -34,13 +34,13 @@ func NewK8sDiscovery(clientset kubernetes.Interface, namespace string, portName 
 		labels:    labels,
 		interval:  interval,
 		logger:    logger,
-		output:    make(chan string),
+		output:    make(chan []string),
 		stop:      make(chan struct{}),
 	}
 }
 
 // Start implements resolver.Resolver.
-func (d *K8sDiscovery) Start() (chan string, error) {
+func (d *K8sDiscovery) Start() (chan []string, error) {
 	ticker := time.NewTicker(d.interval)
 
 	go func() {
@@ -59,6 +59,8 @@ func (d *K8sDiscovery) Start() (chan string, error) {
 					d.logger.Errorf("Error during k8s service lookup: %v\n", err)
 					continue
 				}
+
+				peers := make([]string, 0)
 
 				for _, service := range services.Items {
 					pods, err := d.clientset.CoreV1().Pods(service.Namespace).List(context.Background(), m1.ListOptions{
@@ -88,10 +90,12 @@ func (d *K8sDiscovery) Start() (chan string, error) {
 						}
 
 						if podIP != "" && podPort.ContainerPort != 0 {
-							d.output <- fmt.Sprintf("%v:%v", podIP, podPort.ContainerPort)
+							peers = append(peers, fmt.Sprintf("%v:%v", podIP, podPort.ContainerPort))
 						}
 					}
 				}
+
+				d.output <- peers
 			}
 		}
 	}()
