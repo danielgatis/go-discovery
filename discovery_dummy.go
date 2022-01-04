@@ -34,10 +34,13 @@ func (d *DummyDiscovery) Start() (chan []string, error) {
 		return d.output, nil
 	}
 
+	d.output = make(chan []string)
 	ticker := time.NewTicker(d.interval)
 
 	f := func() {
-		d.output <- d.peers
+		if d.running {
+			d.output <- d.peers
+		}
 	}
 
 	go func() {

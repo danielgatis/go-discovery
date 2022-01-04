@@ -22,6 +22,7 @@ func (d *NullDiscovery) Start() (chan []string, error) {
 		return d.output, nil
 	}
 
+	d.output = make(chan []string)
 	d.running = true
 	return d.output, nil
 }

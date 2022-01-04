@@ -43,6 +43,8 @@ func (d *MdnsDiscovery) Start() (chan []string, error) {
 		return d.output, nil
 	}
 
+	d.output = make(chan []string)
+
 	server, err := zeroconf.Register(d.instance, d.service, d.domain, d.port, []string{"txtv=0", "lo=1", "la=2"}, nil)
 	if err != nil {
 		return d.output, fmt.Errorf("zeroconf.Register(...): %w", err)
@@ -69,7 +71,10 @@ func (d *MdnsDiscovery) Start() (chan []string, error) {
 		}
 
 		<-ctx.Done()
-		d.output <- peers
+
+		if d.running {
+			d.output <- peers
+		}
 
 		return nil
 	}

@@ -47,6 +47,7 @@ func (d *K8sDiscovery) Start() (chan []string, error) {
 		return d.output, nil
 	}
 
+	d.output = make(chan []string)
 	ticker := time.NewTicker(d.interval)
 
 	f := func() error {
@@ -94,7 +95,9 @@ func (d *K8sDiscovery) Start() (chan []string, error) {
 			}
 		}
 
-		d.output <- peers
+		if d.running {
+			d.output <- peers
+		}
 		return nil
 	}
 
