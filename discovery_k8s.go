@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -20,116 +19,64 @@ type K8sDiscovery struct {
 	portName  string
 	labels    map[string]string
 	logger    logrus.FieldLogger
-	interval  time.Duration
-	output    chan []string
-	stop      chan struct{}
-	running   bool
 }
 
 // NewK8sDiscovery returns a new k8s resolver.
-func NewK8sDiscovery(clientset kubernetes.Interface, namespace string, portName string, labels map[string]string, interval time.Duration, logger logrus.FieldLogger) *K8sDiscovery {
+func NewK8sDiscovery(clientset kubernetes.Interface, namespace string, portName string, labels map[string]string, logger logrus.FieldLogger) *K8sDiscovery {
 	return &K8sDiscovery{
 		clientset: clientset,
 		namespace: namespace,
 		portName:  portName,
 		labels:    labels,
-		interval:  interval,
 		logger:    logger,
-		output:    make(chan []string),
-		stop:      make(chan struct{}),
-		running:   false,
 	}
 }
 
-// Start implements resolver.Resolver.
-func (d *K8sDiscovery) Start() (chan []string, error) {
-	if d.running {
-		return d.output, nil
+// Lookup implements discovery.Lookup.
+func (d *K8sDiscovery) Lookup(ctx context.Context) ([]string, error) {
+	services, err := d.clientset.CoreV1().Services(d.namespace).List(context.Background(), m1.ListOptions{
+		LabelSelector: labels.SelectorFromSet(d.labels).String(),
+		Watch:         false,
+	})
+
+	if err != nil {
+		return []string{}, fmt.Errorf(`d.clientset.CoreV1().Services(d.namespace).List(...): %w`, err)
 	}
 
-	d.output = make(chan []string)
-	ticker := time.NewTicker(d.interval)
+	peers := make([]string, 0)
 
-	f := func() error {
-		services, err := d.clientset.CoreV1().Services(d.namespace).List(context.Background(), m1.ListOptions{
-			LabelSelector: labels.SelectorFromSet(d.labels).String(),
-			Watch:         false,
+	for _, service := range services.Items {
+		pods, err := d.clientset.CoreV1().Pods(service.Namespace).List(context.Background(), m1.ListOptions{
+			LabelSelector: labels.SelectorFromSet(labels.Set(service.Spec.Selector)).String(),
 		})
 
 		if err != nil {
-			return err
+			d.logger.Errorf("Error during k8s pod lookup: %v\n", err)
+			continue
 		}
 
-		peers := make([]string, 0)
-
-		for _, service := range services.Items {
-			pods, err := d.clientset.CoreV1().Pods(service.Namespace).List(context.Background(), m1.ListOptions{
-				LabelSelector: labels.SelectorFromSet(labels.Set(service.Spec.Selector)).String(),
-			})
-
-			if err != nil {
-				d.logger.Errorf("Error during k8s pod lookup: %v\n", err)
+		for _, pod := range pods.Items {
+			if strings.ToLower(string(pod.Status.Phase)) != "running" {
 				continue
 			}
 
-			for _, pod := range pods.Items {
-				if strings.ToLower(string(pod.Status.Phase)) != "running" {
-					continue
-				}
+			podIP := pod.Status.PodIP
+			var podPort v1.ContainerPort
 
-				podIP := pod.Status.PodIP
-				var podPort v1.ContainerPort
-
-				for _, container := range pod.Spec.Containers {
-					for _, port := range container.Ports {
-						if port.Name == d.portName {
-							podPort = port
-							break
-						}
+			for _, container := range pod.Spec.Containers {
+				for _, port := range container.Ports {
+					if port.Name == d.portName {
+						podPort = port
+						break
 					}
 				}
+			}
 
-				if podIP != "" && podPort.ContainerPort != 0 {
-					peers = append(peers, fmt.Sprintf("%v:%v", podIP, podPort.ContainerPort))
-				}
+			if podIP != "" && podPort.ContainerPort != 0 {
+				peers = append(peers, fmt.Sprintf("%v:%v", podIP, podPort.ContainerPort))
 			}
 		}
-
-		if d.running {
-			d.output <- peers
-		}
-		return nil
 	}
 
-	go func() {
-		if err := f(); err != nil {
-			d.logger.Errorf("Error during k8s service lookup: %v\n", err)
-		}
-
-		for {
-			select {
-			case <-d.stop:
-				ticker.Stop()
-				return
-			case <-ticker.C:
-				if err := f(); err != nil {
-					d.logger.Errorf("Error during k8s service lookup: %v\n", err)
-				}
-			}
-		}
-	}()
-
-	d.running = true
-	return d.output, nil
-}
-
-// Stop implements resolver.Resolver.
-func (d *K8sDiscovery) Stop() {
-	if !d.running {
-		return
-	}
-
-	d.stop <- struct{}{}
-	close(d.output)
-	d.running = false
+	return peers, nil
 }

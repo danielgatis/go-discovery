@@ -1,10 +1,15 @@
 package discovery
 
-// Discovery represents a base interface for all providers.
-type Discovery interface {
-	// Start returns a channel that outputs the found peers. A peer is a ip:port.
-	Start() (chan []string, error)
+import "context"
 
-	// Stop stops the resolver.
-	Stop()
+// Lookup represents a base interface for all lookups.
+type Lookup interface {
+	// Lookup returns the found peers. A peer is a ip:port.
+	Lookup(context.Context) ([]string, error)
+}
+
+// Register represents a base interface for all registers.
+type Register interface {
+	// Register registers self as a peer.
+	Register(ctx context.Context) error
 }

@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"context"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -17,57 +18,14 @@ type DummyDiscovery struct {
 }
 
 // NewDummyDiscovery returns a new dummy resolver.
-func NewDummyDiscovery(peers []string, interval time.Duration, logger logrus.FieldLogger) *DummyDiscovery {
+func NewDummyDiscovery(peers []string, logger logrus.FieldLogger) *DummyDiscovery {
 	return &DummyDiscovery{
-		peers:    peers,
-		interval: interval,
-		logger:   logger,
-		output:   make(chan []string),
-		stop:     make(chan struct{}),
-		running:  false,
+		peers:  peers,
+		logger: logger,
 	}
 }
 
-// Start implements resolver.Resolver.
-func (d *DummyDiscovery) Start() (chan []string, error) {
-	if d.running {
-		return d.output, nil
-	}
-
-	d.output = make(chan []string)
-	ticker := time.NewTicker(d.interval)
-
-	f := func() {
-		if d.running {
-			d.output <- d.peers
-		}
-	}
-
-	go func() {
-		f()
-
-		for {
-			select {
-			case <-d.stop:
-				ticker.Stop()
-				return
-			case <-ticker.C:
-				f()
-			}
-		}
-	}()
-
-	d.running = true
-	return d.output, nil
-}
-
-// Stop implements resolver.Resolver.
-func (d *DummyDiscovery) Stop() {
-	if !d.running {
-		return
-	}
-
-	d.stop <- struct{}{}
-	close(d.output)
-	d.running = false
+// Lookup implements discovery.Lookup.
+func (d *DummyDiscovery) Lookup(ctx context.Context) ([]string, error) {
+	return d.peers, nil
 }
