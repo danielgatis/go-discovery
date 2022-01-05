@@ -1,6 +1,8 @@
 package discovery
 
 import (
+	"context"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -21,7 +23,12 @@ func NewDummyDiscovery(peers []string, logger logrus.FieldLogger) *DummyDiscover
 	}
 }
 
-// Lookup implements discovery.Lookup.
+// Register implements discovery.Discovery.
+func (d *DummyDiscovery) Register(ctx context.Context) error {
+	return nil
+}
+
+// Lookup implements discovery.Discovery.
 func (d *DummyDiscovery) Lookup() ([]string, error) {
 	return d.peers, nil
 }

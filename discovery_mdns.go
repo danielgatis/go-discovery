@@ -29,7 +29,7 @@ func NewMdnsDiscovery(instance, service, domain string, port int, logger logrus.
 	}
 }
 
-// Register implements discovery.Register.
+// Register implements discovery.Discovery.
 func (d *MdnsDiscovery) Register(ctx context.Context) error {
 	server, err := zeroconf.Register(d.instance, d.service, d.domain, d.port, []string{"txtv=0", "lo=1", "la=2"}, nil)
 	if err != nil {
@@ -44,7 +44,7 @@ func (d *MdnsDiscovery) Register(ctx context.Context) error {
 	return nil
 }
 
-// Lookup implements discovery.Lookup.
+// Lookup implements discovery.Discovery.
 func (d *MdnsDiscovery) Lookup() ([]string, error) {
 	peers := make([]string, 0)
 	entries := make(chan *zeroconf.ServiceEntry)

@@ -11,12 +11,12 @@ func NewNullDiscovery() *NullDiscovery {
 	return &NullDiscovery{}
 }
 
-// Lookup implements discovery.Lookup.
+// Lookup implements discovery.Discovery.
 func (d *NullDiscovery) Lookup() ([]string, error) {
 	return []string{}, nil
 }
 
-// Register implements discovery.Register.
+// Register implements discovery.Discovery.
 func (d *NullDiscovery) Register(ctx context.Context) error {
 	return nil
 }

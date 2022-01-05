@@ -32,7 +32,12 @@ func NewK8sDiscovery(clientset kubernetes.Interface, namespace string, portName 
 	}
 }
 
-// Lookup implements discovery.Lookup.
+// Register implements discovery.Discovery.
+func (d *K8sDiscovery) Register(ctx context.Context) error {
+	return nil
+}
+
+// Lookup implements discovery.Discovery.
 func (d *K8sDiscovery) Lookup() ([]string, error) {
 	services, err := d.clientset.CoreV1().Services(d.namespace).List(context.Background(), m1.ListOptions{
 		LabelSelector: labels.SelectorFromSet(d.labels).String(),
