@@ -1,7 +1,5 @@
 package discovery
 
-import "context"
-
 // NullDiscovery is a dummy resolver for static peers.
 type NullDiscovery struct {
 }
@@ -12,6 +10,6 @@ func NewNullDiscovery() *NullDiscovery {
 }
 
 // Lookup implements discovery.Lookup.
-func (d *NullDiscovery) Lookup(ctx context.Context) ([]string, error) {
+func (d *NullDiscovery) Lookup() ([]string, error) {
 	return []string{}, nil
 }

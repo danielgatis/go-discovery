@@ -15,7 +15,6 @@ type MdnsDiscovery struct {
 	service  string
 	domain   string
 	port     int
-	timeout  time.Duration
 	logger   logrus.FieldLogger
 }
 
@@ -46,25 +45,27 @@ func (d *MdnsDiscovery) Register(ctx context.Context) error {
 }
 
 // Lookup implements discovery.Lookup.
-func (d *MdnsDiscovery) Lookup(ctx context.Context) ([]string, error) {
+func (d *MdnsDiscovery) Lookup() ([]string, error) {
 	peers := make([]string, 0)
 	entries := make(chan *zeroconf.ServiceEntry)
-
-	go func() {
-		for entry := range entries {
-			peers = append(peers, fmt.Sprintf("%s:%d", entry.AddrIPv4[0], entry.Port))
-		}
-	}()
 
 	resolver, err := zeroconf.NewResolver(nil)
 	if err != nil {
 		return peers, err
 	}
 
-	if err := resolver.Browse(ctx, d.service, d.domain, entries); err != nil {
-		d.logger.Errorf("Error during mDNS lookup: %v\n", err)
+	go func() {
+		ctxt, _ := context.WithTimeout(context.Background(), 1*time.Second)
+		if err := resolver.Browse(ctxt, d.service, d.domain, entries); err != nil {
+			d.logger.Errorf("Error during mDNS lookup: %v\n", err)
+		}
+
+		<-ctxt.Done()
+	}()
+
+	for entry := range entries {
+		peers = append(peers, fmt.Sprintf("%s:%d", entry.AddrIPv4[0], entry.Port))
 	}
 
-	<-ctx.Done()
 	return peers, nil
 }

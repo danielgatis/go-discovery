@@ -5,7 +5,7 @@ import "context"
 // Lookup represents a base interface for all lookups.
 type Lookup interface {
 	// Lookup returns the found peers. A peer is a ip:port.
-	Lookup(context.Context) ([]string, error)
+	Lookup() ([]string, error)
 }
 
 // Register represents a base interface for all registers.

@@ -23,30 +23,26 @@ func init() {
 
 func main() {
 	flag.Parse()
-
 	discovery := discovery.NewMdnsDiscovery(fmt.Sprintf("test:%d", port), "_test._tcp", "local.", *port, logrus.StandardLogger())
-	ctxReg, cancelReg := context.WithCancel(context.Background())
-	ctxLkp, cancelLkp := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	exit := make(chan os.Signal)
+	signal.Notify(exit, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		<-sigs
-		cancelReg()
-		cancelLkp()
+		<-exit
+		cancel()
 	}()
 
 	go func() {
-		discovery.Register(ctxReg)
+		discovery.Register(ctx)
 	}()
 
 	for {
 		select {
-		case <-ctxReg.Done():
+		case <-ctx.Done():
 			return
 		default:
-			ctxLkp, cancelLkp = context.WithTimeout(context.Background(), 1*time.Second)
-			peers, err := discovery.Lookup(ctxLkp)
+			peers, err := discovery.Lookup()
 			if err != nil {
 				logrus.Fatal(err)
 			}
