@@ -6,6 +6,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var _ Discovery = (*DummyDiscovery)(nil)
+
 // DummyDiscovery is a dummy resolver for static peers.
 type DummyDiscovery struct {
 	peers   []string

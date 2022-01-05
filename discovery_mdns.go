@@ -9,6 +9,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var _ Discovery = (*MdnsDiscovery)(nil)
+
 // MdnsDiscovery is a mDNS resolver.
 type MdnsDiscovery struct {
 	instance string

@@ -2,6 +2,8 @@ package discovery
 
 import "context"
 
+var _ Discovery = (*NullDiscovery)(nil)
+
 // NullDiscovery is a dummy resolver for static peers.
 type NullDiscovery struct {
 }

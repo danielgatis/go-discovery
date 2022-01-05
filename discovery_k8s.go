@@ -12,6 +12,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+var _ Discovery = (*K8sDiscovery)(nil)
+
 // K8sDiscovery is a k8s resolver.
 type K8sDiscovery struct {
 	clientset kubernetes.Interface
